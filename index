@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Heart Animation - matyü</title>
+
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: black;
+}
+canvas {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+</style>
+</head>
+
+<body>
+<canvas id="heart"></canvas>
+
+<script>
+// requestAnimationFrame fallback
+window.requestAnimationFrame =
+window.requestAnimationFrame ||
+window.webkitRequestAnimationFrame ||
+window.mozRequestAnimationFrame ||
+function (cb) { return setTimeout(cb, 1000/60); };
+
+// detect mobile
+var mobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent.toLowerCase());
+
+var canvas = document.getElementById("heart");
+var ctx = canvas.getContext("2d");
+
+var width, height;
+
+function resize() {
+  width = canvas.width = window.innerWidth * (mobile ? 0.5 : 1);
+  height = canvas.height = window.innerHeight * (mobile ? 0.5 : 1);
+}
+resize();
+window.addEventListener("resize", resize);
+
+// heart math
+function heart(t) {
+  return [
+    Math.pow(Math.sin(t), 3),
+    -(15*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t))
+  ];
+}
+
+// generate heart points
+var points = [];
+var step = mobile ? 0.3 : 0.1;
+
+for (let t = 0; t < Math.PI*2; t += step) {
+  let p = heart(t);
+  points.push([p[0]*210, p[1]*13]);
+  points.push([p[0]*150, p[1]*9]);
+  points.push([p[0]*90, p[1]*5]);
+}
+
+// particles
+var particles = [];
+var traceCount = mobile ? 20 : 50;
+
+for (let i = 0; i < points.length; i++) {
+  let x = Math.random()*window.innerWidth;
+  let y = Math.random()*window.innerHeight;
+
+  particles.push({
+    vx: 0,
+    vy: 0,
+    speed: Math.random()+5,
+    force: 0.7 + Math.random()*0.3,
+    target: Math.floor(Math.random()*points.length),
+    dir: Math.random()>0.5 ? 1 : -1,
+    trace: Array.from({length: traceCount}, () => ({x, y}))
+  });
+}
+
+var time = 0;
+
+function loop() {
+  let n = -Math.cos(time);
+
+  ctx.fillStyle = "rgba(0,0,0,0.1)";
+  ctx.fillRect(0, 0, width, height);
+
+  let k = (1 + n) * 0.5;
+
+  let targets = points.map(p => [
+    p[0]*k + width/2,
+    p[1]*k + height/2
+  ]);
+
+  // particles
+  for (let p of particles) {
+    let target = targets[p.target];
+
+    let dx = p.trace[0].x - target[0];
+    let dy = p.trace[0].y - target[1];
+    let dist = Math.sqrt(dx*dx + dy*dy) || 1;
+
+    if (dist < 10) {
+      if (Math.random() > 0.95) {
+        p.target = Math.floor(Math.random()*targets.length);
+      } else {
+        if (Math.random() > 0.99) p.dir *= -1;
+        p.target = (p.target + p.dir + targets.length) % targets.length;
+      }
+    }
+
+    p.vx += -dx/dist * p.speed;
+    p.vy += -dy/dist * p.speed;
+
+    p.trace[0].x += p.vx;
+    p.trace[0].y += p.vy;
+
+    p.vx *= p.force;
+    p.vy *= p.force;
+
+    for (let i = 0; i < p.trace.length - 1; i++) {
+      let a = p.trace[i];
+      let b = p.trace[i+1];
+      b.x -= 0.4*(b.x - a.x);
+      b.y -= 0.4*(b.y - a.y);
+    }
+
+    ctx.fillStyle = "rgba(255,100,150,0.8)";
+    for (let t of p.trace) {
+      ctx.fillRect(t.x, t.y, 1, 1);
+    }
+  }
+
+  // 💗 TEXT (merged with heart)
+  ctx.save();
+
+  let scale = 1 + n * 0.25;
+  let glow = 15 + (n + 1) * 15;
+
+  ctx.translate(width/2, height/2);
+  ctx.scale(scale, scale);
+
+  ctx.font = (mobile ? 24 : 48) + "px 'Brush Script MT', 'Segoe Script', cursive";
+  ctx.fillStyle = "rgba(255," + (150 + n*50) + "," + (180 + n*50) + ",1)";
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  ctx.shadowColor = "rgba(255,120,170,0.9)";
+  ctx.shadowBlur = glow;
+
+  ctx.fillText("matyü", 0, 0);
+
+  ctx.restore();
+
+  time += 0.02;
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
